@@ -6,9 +6,9 @@ public class GridManager : MonoBehaviour
 {
     public int width = 8;
     public int height = 8;
-    public GameObject cellPrefab;      // Cell prefab (.prefab) - içinde Cell.cs ve BoxCollider2D olmalı
-    public GameObject candyPrefab;     // Candy prefab (.prefab) - içinde Candy.cs ve SpriteRenderer olmalı
-    public List<CandyType> candyTypes; // CandyType ScriptableObject'leri
+    public GameObject cellPrefab;     
+    public GameObject candyPrefab;    
+    public List<CandyType> candyTypes;
     public float swapSpeed = 8f;
 
     private Cell[,] cells;
@@ -46,23 +46,21 @@ public class GridManager : MonoBehaviour
 
     IEnumerator FillBoardRoutine()
     {
-        // İlk doldurma
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++)
                 SpawnRandomCandyAt(x, y);
 
-        // Eğer başlangıçta eşleşmeler varsa temizle ve doldur (sonsuz döngüye dikkat)
         int safety = 0;
         while (true)
         {
-            var matches = GetAllMatches();
-            if (matches.Count == 0) break;
+            var groups = GetMatchGroups();
+            if (groups.Count == 0) break;
 
-            ClearMatches(matches);
+            ClearMatchGroups(groups);
             yield return StartCoroutine(CollapseRoutine());
 
             safety++;
-            if (safety > 20) // çok nadir de olsa takılma olursa kes
+            if (safety > 20)
             {
                 Debug.LogWarning("FillBoardRoutine: safety break");
                 break;
@@ -71,6 +69,7 @@ public class GridManager : MonoBehaviour
         }
         yield break;
     }
+
 
     void SpawnRandomCandyAt(int x, int y)
     {
@@ -92,21 +91,194 @@ public class GridManager : MonoBehaviour
         }
 
         GameObject go = Instantiate(candyPrefab, transform);
-        // Spawn yukarıdan başlatıyoruz (görsel düşme için)
-        // DEĞİŞTİRİLDİ: önce -(y + height) kullanılıyordu; yukarıdan spawn => -y + height
         go.transform.position = new Vector3(x, -y + height, 0);
         Candy candy = go.GetComponent<Candy>();
         if (candy == null) candy = go.AddComponent<Candy>();
         candy.SetType(type);
 
-        // cell referansını ata
         if (cells[x, y] != null)
             cells[x, y].candy = candy;
 
-        // Hedef pozisyona hareket ettir
         StartCoroutine(MoveCandyTo(go, new Vector3(x, -y, 0)));
     }
+    void RemoveCandyInstance(Candy c)
+    {
+        if (c == null) return;
+        if (gameManager != null && c.type != null) gameManager.AddScore(c.type.scoreValue);
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (cells[x, y] != null && cells[x, y].candy == c) cells[x, y].candy = null;
+        Destroy(c.gameObject);
+    }
 
+    void ClearAll()
+    {
+        var toClear = new List<Candy>();
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (cells[x, y] != null && cells[x, y].candy != null) toClear.Add(cells[x, y].candy);
+        ClearMatches(toClear);
+    }
+    (List<Candy> horiz, List<Candy> vert) GetLinesAt(int x, int y)
+    {
+        var horiz = new List<Candy>();
+        var vert = new List<Candy>();
+        if (cells[x,y] == null || cells[x,y].candy == null) return (horiz, vert);
+        var start = cells[x,y].candy;
+        horiz.Add(start);
+        for (int i = x - 1; i >= 0; i--)
+        {
+            var c = cells[i, y].candy;
+            if (c != null && c.type != null && start.type != null && c.type.id == start.type.id) horiz.Add(c); else break;
+        }
+        for (int i = x + 1; i < width; i++)
+        {
+            var c = cells[i, y].candy;
+            if (c != null && c.type != null && start.type != null && c.type.id == start.type.id) horiz.Add(c); else break;
+        }
+        vert.Add(start);
+        for (int j = y - 1; j >= 0; j--)
+        {
+            var c = cells[x, j].candy;
+            if (c != null && c.type != null && start.type != null && c.type.id == start.type.id) vert.Add(c); else break;
+        }
+        for (int j = y + 1; j < height; j++)
+        {
+            var c = cells[x, j].candy;
+            if (c != null && c.type != null && start.type != null && c.type.id == start.type.id) vert.Add(c); else break;
+        }
+        return (horiz, vert);
+    }
+    List<List<Candy>> GetMatchGroups()
+    {
+        var used = new HashSet<Candy>();
+        var groups = new List<List<Candy>>();
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                var list = GetMatchesAt(x, y);
+                if (list.Count >= 3)
+                {
+                    bool anyUsed = false;
+                    foreach (var c in list) if (used.Contains(c)) { anyUsed = true; break; }
+                    if (anyUsed) continue;
+
+                    foreach (var c in list) used.Add(c);
+                    groups.Add(new List<Candy>(list));
+                }
+            }
+        }
+        return groups;
+    }
+    void ClearMatchGroups(List<List<Candy>> groups)
+    {
+        if (groups == null || groups.Count == 0) return;
+
+        foreach (var grp in groups)
+        {
+            if (grp == null || grp.Count == 0) continue;
+
+            bool wrappedHandled = false;
+            foreach (var c in grp)
+            {
+                if (c == null) continue;
+
+                int cx = -1, cy = -1;
+                for (int x = 0; x < width; x++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        if (cells[x, y] != null && cells[x, y].candy == c) { cx = x; cy = y; break; }
+                    }
+                    if (cx >= 0) break;
+                }
+                if (cx < 0) continue;
+
+                var (hline, vline) = GetLinesAt(cx, cy);
+                if (hline.Count >= 3 && vline.Count >= 3)
+                {
+                    CreateSpecialCandyAt(cx, cy, SpecialCandyType.Wrapped, c.type);
+
+                    var toRemove = new HashSet<Candy>();
+                    foreach (var hc in hline) if (hc != null) toRemove.Add(hc);
+                    foreach (var vc in vline) if (vc != null) toRemove.Add(vc);
+
+                    foreach (var rem in toRemove)
+                    {
+                        if (rem == null) continue;
+                        if (cells[cx, cy] != null && cells[cx, cy].candy == rem) continue; // yeni wrapped'ı silme
+                        RemoveCandyInstance(rem);
+                    }
+
+                    wrappedHandled = true;
+                    break; 
+                }
+            }
+
+            if (wrappedHandled) continue;
+
+            Candy first = grp[0];
+            int fx = -1, fy = -1;
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    if (cells[x, y] != null && cells[x, y].candy == first) { fx = x; fy = y; break; }
+                }
+                if (fx >= 0) break;
+            }
+
+            if (fx < 0)
+            {
+                foreach (var c2 in grp) if (c2 != null) RemoveCandyInstance(c2);
+                continue;
+            }
+
+            if (grp.Count >= 5)
+            {
+                CreateSpecialCandyAt(fx, fy, SpecialCandyType.ColorBomb);
+                foreach (var c2 in grp)
+                {
+                    if (c2 == null) continue;
+                    if (cells[fx, fy] != null && cells[fx, fy].candy == c2) continue;
+                    RemoveCandyInstance(c2);
+                }
+            }
+            else if (grp.Count == 4)
+            {
+                bool horiz = true;
+                int y0 = -999;
+                foreach (var c2 in grp)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        for (int y = 0; y < height; y++)
+                        {
+                            if (cells[x, y] != null && cells[x, y].candy == c2)
+                            {
+                                if (y0 == -999) y0 = y;
+                                else if (y != y0) horiz = false;
+                            }
+                        }
+                    }
+                }
+                var st = horiz ? SpecialCandyType.Striped_Horizontal : SpecialCandyType.Striped_Vertical;
+                CreateSpecialCandyAt(fx, fy, st, first.type);
+                foreach (var c2 in grp)
+                {
+                    if (c2 == null) continue;
+                    if (cells[fx, fy] != null && cells[fx, fy].candy == c2) continue;
+                    RemoveCandyInstance(c2);
+                }
+            }
+            else
+            {
+                foreach (var c2 in grp) if (c2 != null) RemoveCandyInstance(c2);
+            }
+        }
+    }
     IEnumerator MoveCandyTo(GameObject go, Vector3 target)
     {
         if (go == null) yield break;
@@ -115,7 +287,6 @@ public class GridManager : MonoBehaviour
         {
             go.transform.position = Vector3.Lerp(go.transform.position, target, Time.deltaTime * swapSpeed);
             t += Time.deltaTime;
-            // güvenlik için uzun sürede çık
             if (t > 2f) { go.transform.position = target; break; }
             yield return null;
         }
@@ -123,49 +294,91 @@ public class GridManager : MonoBehaviour
     }
 
     public IEnumerator SwapCells(Vector2Int a, Vector2Int b)
+{
+    if (!AreAdjacent(a, b)) yield break;
+    if (cells == null) yield break;
+
+    Cell cellA = cells[a.x, a.y];
+    Cell cellB = cells[b.x, b.y];
+    if (cellA == null || cellB == null) yield break;
+    Candy candyA = cellA.candy;
+    Candy candyB = cellB.candy;
+    if (candyA == null || candyB == null) yield break;
+
+    Candy origA = candyA;
+    Candy origB = candyB;
+
+    cellA.candy = candyB;
+    cellB.candy = candyA;
+
+    StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(b.x, -b.y, 0)));
+    StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(a.x, -a.y, 0)));
+    yield return new WaitForSeconds(0.16f);
+
+  
+    if (origA.special == SpecialCandyType.ColorBomb && origB.special == SpecialCandyType.ColorBomb)
     {
-        if (!AreAdjacent(a, b)) yield break;
-        if (cells == null) yield break;
+        Debug.Log("ColorBomb + ColorBomb triggered: clearing all");
+        ClearAll();
+        yield return StartCoroutine(CollapseRoutine());
+        yield break;
+    }
 
-        Cell cellA = cells[a.x, a.y];
-        Cell cellB = cells[b.x, b.y];
-        if (cellA == null || cellB == null) yield break;
-        Candy candyA = cellA.candy;
-        Candy candyB = cellB.candy;
-        if (candyA == null || candyB == null) yield break;
+    if (origA.special == SpecialCandyType.ColorBomb && origB.type != null)
+    {
+        Debug.Log("ColorBomb triggered with target type (origA)");
+        origA.TriggerSpecial(this, b.x, b.y, origB.type);
+        yield return StartCoroutine(CollapseRoutine());
+        yield break;
+    }
+    if (origB.special == SpecialCandyType.ColorBomb && origA.type != null)
+    {
+        Debug.Log("ColorBomb triggered with target type (origB)");
+        origB.TriggerSpecial(this, a.x, a.y, origA.type);
+        yield return StartCoroutine(CollapseRoutine());
+        yield break;
+    }
 
-        // swap data
-        cellA.candy = candyB;
-        cellB.candy = candyA;
+    if (origA.special != SpecialCandyType.None && origB.special == SpecialCandyType.None)
+    {
+        Debug.Log($"Special {origA.special} from A triggered by swapping with normal candy");
+        origA.TriggerSpecial(this, b.x, b.y, origB.type);
+        yield return StartCoroutine(CollapseRoutine());
+        yield break;
+    }
+    if (origB.special != SpecialCandyType.None && origA.special == SpecialCandyType.None)
+    {
+        Debug.Log($"Special {origB.special} from B triggered by swapping with normal candy");
+        origB.TriggerSpecial(this, a.x, a.y, origA.type);
+        yield return StartCoroutine(CollapseRoutine());
+        yield break;
+    }
 
-        // animate
-        StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(b.x, -b.y, 0)));
-        StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(a.x, -a.y, 0)));
+    var groups = GetMatchGroups();
+    if (groups.Count == 0)
+    {
+        cellA.candy = candyA;
+        cellB.candy = candyB;
+        StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(a.x, -a.y, 0)));
+        StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(b.x, -b.y, 0)));
         yield return new WaitForSeconds(0.16f);
+    }
+    else
+    {
+        ClearMatchGroups(groups);
+        yield return StartCoroutine(CollapseRoutine());
 
-        var matches = GetAllMatches();
-        if (matches.Count == 0)
+        while (true)
         {
-            // swap back
-            cellA.candy = candyA;
-            cellB.candy = candyB;
-            StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(a.x, -a.y, 0)));
-            StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(b.x, -b.y, 0)));
-            yield return new WaitForSeconds(0.16f);
-        }
-        else
-        {
-            // temizleme + collapse döngüsü
-            while (true)
-            {
-                matches = GetAllMatches();
-                if (matches.Count == 0) break;
-                ClearMatches(matches);
-                yield return StartCoroutine(CollapseRoutine());
-                yield return new WaitForSeconds(0.05f);
-            }
+            groups = GetMatchGroups();
+            if (groups.Count == 0) break;
+            ClearMatchGroups(groups);
+            yield return StartCoroutine(CollapseRoutine());
+            yield return new WaitForSeconds(0.05f);
         }
     }
+}
+
 
     bool AreAdjacent(Vector2Int a, Vector2Int b)
     {
@@ -179,7 +392,6 @@ public class GridManager : MonoBehaviour
         Candy start = cells[x, y].candy;
         if (start == null || start.type == null) return result;
 
-        // horizontal
         List<Candy> horiz = new List<Candy> { start };
         for (int i = x - 1; i >= 0; i--)
         {
@@ -193,7 +405,6 @@ public class GridManager : MonoBehaviour
         }
         if (horiz.Count >= 3) return horiz;
 
-        // vertical
         List<Candy> vert = new List<Candy> { start };
         for (int j = y - 1; j >= 0; j--)
         {
@@ -228,26 +439,113 @@ public class GridManager : MonoBehaviour
         {
             if (c == null) continue;
             if (gameManager != null && c.type != null) gameManager.AddScore(c.type.scoreValue);
-            // cell'tan ayır
             for (int x = 0; x < width; x++)
                 for (int y = 0; y < height; y++)
                     if (cells[x, y] != null && cells[x, y].candy == c) cells[x, y].candy = null;
 
-            // yok et (pool varsa onu kullan)
             Destroy(c.gameObject);
         }
     }
+    public void CreateSpecialCandyAt(int x, int y, SpecialCandyType specialType, CandyType baseType = null)
+    {
+    if (candyPrefab == null) return;
 
+    if (cells[x, y] != null && cells[x, y].candy != null)
+    {
+        Candy existing = cells[x, y].candy;
+        if (baseType != null) existing.SetType(baseType);
+        existing.SetSpecial(specialType);
+        return;
+    }
+
+    GameObject go = Instantiate(candyPrefab, transform);
+    go.transform.localPosition = new Vector3(x, -y, 0); 
+    Candy candy = go.GetComponent<Candy>();
+    if (candy == null) candy = go.AddComponent<Candy>();
+    candy.SetType(baseType);
+    candy.SetSpecial(specialType);
+    if (cells[x, y] != null) cells[x, y].candy = candy;
+    }
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            int cx = Mathf.Clamp(width / 2, 0, width - 1);
+            int cy = Mathf.Clamp(height / 2, 0, height - 1);
+            Debug.Log($"Test: Create Wrapped at {cx},{cy}");
+            CreateSpecialCandyAt(cx, cy, SpecialCandyType.Wrapped);
+        }
+    }
+    public void ClearRow(int y)
+    {
+        var toClear = new List<Candy>();
+        for (int x = 0; x < width; x++)
+            if (cells[x, y] != null && cells[x, y].candy != null) toClear.Add(cells[x, y].candy);
+        ClearMatches(toClear);
+    }
+
+    public void ClearColumn(int x)
+    {
+        var toClear = new List<Candy>();
+        for (int y = 0; y < height; y++)
+            if (cells[x, y] != null && cells[x, y].candy != null) toClear.Add(cells[x, y].candy);
+        ClearMatches(toClear);
+    }
+
+    public void ClearArea(int cx, int cy, int radius)
+    {
+        var toClear = new List<Candy>();
+        for (int dx = -radius; dx <= radius; dx++)
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                int x = cx + dx, y = cy + dy;
+                if (x >= 0 && x < width && y >= 0 && y < height)
+                    if (cells[x, y] != null && cells[x, y].candy != null) toClear.Add(cells[x, y].candy);
+            }
+        ClearMatches(toClear);
+    }
+
+    public void ClearAllOfType(CandyType type)
+    {
+        if (type == null) return;
+        var toClear = new List<Candy>();
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                if (cells[x, y] != null && cells[x, y].candy != null && cells[x, y].candy.type != null && cells[x, y].candy.type.id == type.id)
+                    toClear.Add(cells[x, y].candy);
+        ClearMatches(toClear);
+    }
+    void HandleMatchForSpecial(List<Candy> matches)
+{
+    if (matches == null || matches.Count < 3) return;
+    Candy first = matches[0];
+    int fx=-1, fy=-1;
+    for (int x=0;x<width;x++) for (int y=0;y<height;y++)
+        if (cells[x,y]!=null && cells[x,y].candy==first) { fx=x; fy=y; break; }
+
+    if (fx < 0) return;
+
+    if (matches.Count >= 5)
+    {
+        CreateSpecialCandyAt(fx, fy, SpecialCandyType.ColorBomb);
+    }
+    else if (matches.Count == 4)
+    {
+        bool horizontal = true;
+        foreach (var c in matches) {
+        }
+        CreateSpecialCandyAt(fx, fy, SpecialCandyType.Striped_Horizontal, first.type);
+    }
+}
     IEnumerator CollapseRoutine()
     {
-        // DEĞİŞTİRİLDİ: sütun içinde alttan üste kontrol (y=height-1 -> 0)
         for (int x = 0; x < width; x++)
         {
             for (int y = height - 1; y >= 0; y--)
             {
                 if (cells[x, y].candy == null)
                 {
-                    int k = y - 1; // üstteki (daha küçük y index) öğeyi ara
+                    int k = y - 1; 
                     while (k >= 0 && cells[x, k].candy == null) k--;
                     if (k >= 0 && cells[x, k].candy != null)
                     {
@@ -258,14 +556,12 @@ public class GridManager : MonoBehaviour
                     }
                     else
                     {
-                        // üstten yeni spawn
                         SpawnRandomCandyAt(x, y);
                     }
                 }
             }
         }
 
-        // animasyon için bekle
         yield return new WaitForSeconds(0.14f);
     }
 }

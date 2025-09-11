@@ -5,6 +5,6 @@ public class CandyType : ScriptableObject
 {
     public string typeName;
     public Sprite sprite;
-    public int id; // eşleştirme için
+    public int id;
     public int scoreValue = 10;
 }

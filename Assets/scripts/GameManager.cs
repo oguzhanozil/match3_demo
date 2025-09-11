@@ -14,13 +14,11 @@ public class GameManager : MonoBehaviour
     {
         score = 0;
         isGameOver = false;
-        // Additional initialization logic here
     }
 
     public void GameOver()
     {
         isGameOver = true;
-        // Handle game over logic here
     }
 
     public void AddScore(int points)
@@ -28,7 +26,6 @@ public class GameManager : MonoBehaviour
         if (!isGameOver)
         {
             score += points;
-            // Update score display logic here
         }
     }
 
