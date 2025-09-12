@@ -10,15 +10,21 @@ public class GridManager : MonoBehaviour
     public GameObject candyPrefab;    
     public List<CandyType> candyTypes;
     public float swapSpeed = 8f;
-
+    public LevelData levelData;
     private Cell[,] cells;
     private GameManager gameManager;
 
     void Start()
     {
         gameManager = FindObjectOfType<GameManager>();
-        CreateGrid();
-        StartCoroutine(FillBoardRoutine());
+        if (levelData != null)
+        {
+            width = levelData.width;
+            height = levelData.height;
+        }
+    CreateGrid();
+    PlaceObstaclesFromLevel();
+    StartCoroutine(FillBoardRoutine());
     }
 
     void CreateGrid()
@@ -43,7 +49,50 @@ public class GridManager : MonoBehaviour
             }
         }
     }
+    void PlaceObstaclesFromLevel()
+    {
+    if (levelData == null) return;
+    foreach (var e in levelData.obstacles)
+    {
+        if (e.x < 0 || e.x >= width || e.y < 0 || e.y >= height) continue;
+        var cell = cells[e.x, e.y];
+        if (cell == null) continue;
 
+        switch (e.type)
+        {
+            case LevelData.ObstacleType.Locked:
+                cell.ApplyLocked();
+                break;
+            case LevelData.ObstacleType.Jelly:
+                cell.ApplyJelly(e.jellyLayers);
+                break;
+            case LevelData.ObstacleType.BombTimed:
+                cell.ApplyTimedBomb(e.bombTimer);
+                break;
+            }
+        }
+    }
+    public void DecrementBombTimers()
+{
+    List<(int x, int y)> explode = new List<(int, int)>();
+    for (int x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
+        {
+            var c = cells[x, y];
+            if (c != null && c.hasTimedBomb)
+            {
+                c.DecrementBombTimer();
+                if (c.bombTimer <= 0) explode.Add((x, y));
+            }
+        }
+
+    foreach (var e in explode)
+    {
+        // explode area 1 (3x3)
+        ClearArea(e.x, e.y, 1);
+        StartCoroutine(CollapseRoutine());
+    }
+}
     IEnumerator FillBoardRoutine()
     {
         for (int x = 0; x < width; x++)
@@ -308,24 +357,29 @@ public class GridManager : MonoBehaviour
     Candy origA = candyA;
     Candy origB = candyB;
 
+    // swap data
     cellA.candy = candyB;
     cellB.candy = candyA;
 
+    // animate
     StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(b.x, -b.y, 0)));
     StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(a.x, -a.y, 0)));
     yield return new WaitForSeconds(0.16f);
 
-  
+    // ColorBomb + ColorBomb => clear all (count as a move)
     if (origA.special == SpecialCandyType.ColorBomb && origB.special == SpecialCandyType.ColorBomb)
     {
+        if (gameManager != null) gameManager.UseMove();
         Debug.Log("ColorBomb + ColorBomb triggered: clearing all");
         ClearAll();
         yield return StartCoroutine(CollapseRoutine());
         yield break;
     }
 
+    // ColorBomb swapped with normal candy => clear all of that type (count as a move)
     if (origA.special == SpecialCandyType.ColorBomb && origB.type != null)
     {
+        if (gameManager != null) gameManager.UseMove();
         Debug.Log("ColorBomb triggered with target type (origA)");
         origA.TriggerSpecial(this, b.x, b.y, origB.type);
         yield return StartCoroutine(CollapseRoutine());
@@ -333,14 +387,17 @@ public class GridManager : MonoBehaviour
     }
     if (origB.special == SpecialCandyType.ColorBomb && origA.type != null)
     {
+        if (gameManager != null) gameManager.UseMove();
         Debug.Log("ColorBomb triggered with target type (origB)");
         origB.TriggerSpecial(this, a.x, a.y, origA.type);
         yield return StartCoroutine(CollapseRoutine());
         yield break;
     }
 
+    // special (striped/wrapped) swapped with normal candy -> trigger it (count as a move)
     if (origA.special != SpecialCandyType.None && origB.special == SpecialCandyType.None)
     {
+        if (gameManager != null) gameManager.UseMove();
         Debug.Log($"Special {origA.special} from A triggered by swapping with normal candy");
         origA.TriggerSpecial(this, b.x, b.y, origB.type);
         yield return StartCoroutine(CollapseRoutine());
@@ -348,15 +405,18 @@ public class GridManager : MonoBehaviour
     }
     if (origB.special != SpecialCandyType.None && origA.special == SpecialCandyType.None)
     {
+        if (gameManager != null) gameManager.UseMove();
         Debug.Log($"Special {origB.special} from B triggered by swapping with normal candy");
         origB.TriggerSpecial(this, a.x, a.y, origA.type);
         yield return StartCoroutine(CollapseRoutine());
         yield break;
     }
 
+    // normal match flow using groups that also handle special creation
     var groups = GetMatchGroups();
     if (groups.Count == 0)
     {
+        // invalid swap -> swap back, do not consume a move
         cellA.candy = candyA;
         cellB.candy = candyB;
         StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(a.x, -a.y, 0)));
@@ -365,6 +425,9 @@ public class GridManager : MonoBehaviour
     }
     else
     {
+        // valid move -> consume one move
+        if (gameManager != null) gameManager.UseMove();
+
         ClearMatchGroups(groups);
         yield return StartCoroutine(CollapseRoutine());
 
