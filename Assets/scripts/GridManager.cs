@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class GridManager : MonoBehaviour
 {
@@ -88,7 +89,8 @@ public class GridManager : MonoBehaviour
 
     foreach (var e in explode)
     {
-        // explode area 1 (3x3)
+            // explode area 1 (3x3)
+        AudioManager.Instance?.PlayExplode();
         ClearArea(e.x, e.y, 1);
         StartCoroutine(CollapseRoutine());
     }
@@ -365,16 +367,24 @@ public class GridManager : MonoBehaviour
     StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(b.x, -b.y, 0)));
     StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(a.x, -a.y, 0)));
     yield return new WaitForSeconds(0.16f);
-
+    bool specialSwap = (origA.special != SpecialCandyType.None) || (origB.special != SpecialCandyType.None);
+        if (!specialSwap)
+        {
+            AudioManager.Instance?.PlaySwap();
+        }
+        else
+        {
+            AudioManager.Instance?.PlayExplode();
+        }
     // ColorBomb + ColorBomb => clear all (count as a move)
-    if (origA.special == SpecialCandyType.ColorBomb && origB.special == SpecialCandyType.ColorBomb)
-    {
-        if (gameManager != null) gameManager.UseMove();
-        Debug.Log("ColorBomb + ColorBomb triggered: clearing all");
-        ClearAll();
-        yield return StartCoroutine(CollapseRoutine());
-        yield break;
-    }
+        if (origA.special == SpecialCandyType.ColorBomb && origB.special == SpecialCandyType.ColorBomb)
+        {
+            if (gameManager != null) gameManager.UseMove();
+            Debug.Log("ColorBomb + ColorBomb triggered: clearing all");
+            ClearAll();
+            yield return StartCoroutine(CollapseRoutine());
+            yield break;
+        }
 
     // ColorBomb swapped with normal candy => clear all of that type (count as a move)
     if (origA.special == SpecialCandyType.ColorBomb && origB.type != null)
