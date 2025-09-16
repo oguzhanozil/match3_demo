@@ -89,7 +89,6 @@ public class GridManager : MonoBehaviour
 
     foreach (var e in explode)
     {
-            // explode area 1 (3x3)
         AudioManager.Instance?.PlayExplode();
         ClearArea(e.x, e.y, 1);
         StartCoroutine(CollapseRoutine());
@@ -152,16 +151,32 @@ public class GridManager : MonoBehaviour
 
         StartCoroutine(MoveCandyTo(go, new Vector3(x, -y, 0)));
     }
-    void RemoveCandyInstance(Candy c)
+    public void RemoveCandyInstance(Candy c)
     {
         if (c == null) return;
+        StartCoroutine(RemoveCandyCoroutine(c));
+    }
+    IEnumerator RemoveCandyCoroutine(Candy c)
+    {
+        if (c == null) yield break;
+
         if (gameManager != null && c.type != null) gameManager.AddScore(c.type.scoreValue);
+
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++)
                 if (cells[x, y] != null && cells[x, y].candy == c) cells[x, y].candy = null;
+
+        float wait = 0.08f;
+        if (c != null)
+        {
+            wait = c.PlayExplodeAndGetDuration();
+            if (wait < 0.05f) wait = 0.05f;
+            if (wait > 0.6f) wait = 0.6f;
+        }
+
+        yield return new WaitForSeconds(wait);
         Destroy(c.gameObject);
     }
-
     void ClearAll()
     {
         var toClear = new List<Candy>();
@@ -259,7 +274,7 @@ public class GridManager : MonoBehaviour
                     foreach (var rem in toRemove)
                     {
                         if (rem == null) continue;
-                        if (cells[cx, cy] != null && cells[cx, cy].candy == rem) continue; // yeni wrapped'ı silme
+                        if (cells[cx, cy] != null && cells[cx, cy].candy == rem) continue; 
                         RemoveCandyInstance(rem);
                     }
 
@@ -359,11 +374,8 @@ public class GridManager : MonoBehaviour
     Candy origA = candyA;
     Candy origB = candyB;
 
-    // swap data
     cellA.candy = candyB;
     cellB.candy = candyA;
-
-    // animate
     StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(b.x, -b.y, 0)));
     StartCoroutine(MoveCandyTo(candyB.gameObject, new Vector3(a.x, -a.y, 0)));
     yield return new WaitForSeconds(0.16f);
@@ -376,7 +388,6 @@ public class GridManager : MonoBehaviour
         {
             AudioManager.Instance?.PlayExplode();
         }
-    // ColorBomb + ColorBomb => clear all (count as a move)
         if (origA.special == SpecialCandyType.ColorBomb && origB.special == SpecialCandyType.ColorBomb)
         {
             if (gameManager != null) gameManager.UseMove();
@@ -386,7 +397,6 @@ public class GridManager : MonoBehaviour
             yield break;
         }
 
-    // ColorBomb swapped with normal candy => clear all of that type (count as a move)
     if (origA.special == SpecialCandyType.ColorBomb && origB.type != null)
     {
         if (gameManager != null) gameManager.UseMove();
@@ -404,7 +414,6 @@ public class GridManager : MonoBehaviour
         yield break;
     }
 
-    // special (striped/wrapped) swapped with normal candy -> trigger it (count as a move)
     if (origA.special != SpecialCandyType.None && origB.special == SpecialCandyType.None)
     {
         if (gameManager != null) gameManager.UseMove();
@@ -422,11 +431,9 @@ public class GridManager : MonoBehaviour
         yield break;
     }
 
-    // normal match flow using groups that also handle special creation
     var groups = GetMatchGroups();
     if (groups.Count == 0)
     {
-        // invalid swap -> swap back, do not consume a move
         cellA.candy = candyA;
         cellB.candy = candyB;
         StartCoroutine(MoveCandyTo(candyA.gameObject, new Vector3(a.x, -a.y, 0)));
@@ -435,7 +442,6 @@ public class GridManager : MonoBehaviour
     }
     else
     {
-        // valid move -> consume one move
         if (gameManager != null) gameManager.UseMove();
 
         ClearMatchGroups(groups);
@@ -508,15 +514,11 @@ public class GridManager : MonoBehaviour
 
     void ClearMatches(List<Candy> matches)
     {
+        if (matches == null) return;
         foreach (var c in matches)
         {
             if (c == null) continue;
-            if (gameManager != null && c.type != null) gameManager.AddScore(c.type.scoreValue);
-            for (int x = 0; x < width; x++)
-                for (int y = 0; y < height; y++)
-                    if (cells[x, y] != null && cells[x, y].candy == c) cells[x, y].candy = null;
-
-            Destroy(c.gameObject);
+            RemoveCandyInstance(c);
         }
     }
     public void CreateSpecialCandyAt(int x, int y, SpecialCandyType specialType, CandyType baseType = null)

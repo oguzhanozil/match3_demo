@@ -6,15 +6,12 @@ public class AudioManager : MonoBehaviour
 
     public AudioSource audioSource;
 
-    // Inspector'dan atayacağınız klipler
     public AudioClip levelSceneMusic;
     public AudioClip gameplaySceneMusic;
 
-    // Yeni: SFX klipleri
     public AudioClip swapClip;
     public AudioClip explodeClip;
 
-    // Yeni: SFX için ayrı ses seviye çarpanı
     [Range(0f,1f)]
     public float sfxVolume = 1f;
 
@@ -30,7 +27,6 @@ public class AudioManager : MonoBehaviour
             audioSource.loop = true;
             audioSource.playOnAwake = false;
 
-            // Ensure 2D sound for SFX
             audioSource.spatialBlend = 0f;
         }
         else
@@ -61,7 +57,6 @@ public class AudioManager : MonoBehaviour
 
     public void PlayForScene(string sceneName)
     {
-        // Sahne isimlerini Build Settings'teki ile eşleştirin.
         string n = sceneName.ToLowerInvariant();
         AudioClip toPlay = null;
 
@@ -80,13 +75,11 @@ public class AudioManager : MonoBehaviour
         audioSource.Play();
     }
 
-    // İhtiyaca göre dışarıdan geçici çalma fonksiyonu
     public void PlayClipOnce(AudioClip clip, float volume = 1f)
     {
         audioSource.PlayOneShot(clip, volume);
     }
 
-    // Yeni: swap ve explode için yardımcı metodlar
     public void PlaySwap(float volume = 1f)
     {
         if (swapClip == null) return;

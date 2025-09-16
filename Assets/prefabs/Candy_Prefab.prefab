@@ -194,3 +194,5 @@ MonoBehaviour:
   overlayStripedV: {fileID: 6354336205239501193, guid: 9e5301e41beb1e74b8c67dc4f5cf03f5, type: 3}
   overlayWrapped: {fileID: -3263582312909929260, guid: f0fa392e13c726c46859845234ab2340, type: 3}
   overlayBomb: {fileID: -2613247888821195678, guid: f56c8f474a70ed24abc0e74abff02d17, type: 3}
+  swapParticlePrefab: {fileID: 3962814927208965719, guid: 6ebd3742edb3585488c24b8025095211, type: 3}
+  explodeParticlePrefab: {fileID: 3861473711204489491, guid: 8783c235a5f0d59469268c44f6a56bf2, type: 3}

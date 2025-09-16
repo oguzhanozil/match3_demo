@@ -5,10 +5,10 @@ using UnityEngine.SceneManagement;
 
 public class LevelSelectManager : MonoBehaviour
 {
-    public LevelData[] levels;           // sürükle LevelData asset'lerini
-    public GameObject buttonPrefab;      // Button prefab (root'ta Button component olmalı)
-    public Transform contentParent;      // Scroll View -> Content veya Panel
-    public int gameplaySceneIndex = 0;   // Build Settings içindeki gameplay sahne index'i
+    public LevelData[] levels;          
+    public GameObject buttonPrefab;      
+    public Transform contentParent;     
+    public int gameplaySceneIndex = 0;   
 
     void Start()
     {
@@ -18,7 +18,6 @@ public class LevelSelectManager : MonoBehaviour
             return;
         }
 
-        // Temizle (editteki templateleri kaldır)
         for (int i = contentParent.childCount - 1; i >= 0; i--) Destroy(contentParent.GetChild(i).gameObject);
 
         for (int i = 0; i < levels.Length; i++)
@@ -31,7 +30,7 @@ public class LevelSelectManager : MonoBehaviour
             var tmp = go.GetComponentInChildren<TextMeshProUGUI>();
             if (tmp != null) tmp.text = string.IsNullOrEmpty(lvl.levelName) ? $"Level {i+1}" : lvl.levelName;
 
-            int idx = i; // closure safety
+            int idx = i; 
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(() => PlayLevelByIndex(idx));
 

@@ -6,7 +6,6 @@ public class Cell : MonoBehaviour
     public int y;
     public Candy candy;
 
-    // obstacle state
     public bool locked = false;
     public int jellyLayers = 0;
     public bool hasTimedBomb = false;
@@ -71,7 +70,6 @@ public class Cell : MonoBehaviour
         bombTimer--;
         if (bombTimer <= 0)
         {
-            // bomb explodes -> clear this cell candy (GridManager will handle)
         }
         UpdateObstacleVisual();
     }
@@ -82,17 +80,17 @@ public class Cell : MonoBehaviour
         if (hasTimedBomb)
         {
             obstacleSr.enabled = true;
-            obstacleSr.color = Color.black; // placeholder visual
+            obstacleSr.color = Color.black; 
         }
         else if (jellyLayers > 0)
         {
             obstacleSr.enabled = true;
-            obstacleSr.color = Color.cyan; // jelly color
+            obstacleSr.color = Color.cyan; 
         }
         else if (locked)
         {
             obstacleSr.enabled = true;
-            obstacleSr.color = Color.gray; // lock color
+            obstacleSr.color = Color.gray; 
         }
         else
         {

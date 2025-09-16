@@ -10,12 +10,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("AudioManager")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("Cell")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
-[assembly: System.Reflection.AssemblyProductAttribute("AudioManager")]
-[assembly: System.Reflection.AssemblyTitleAttribute("AudioManager")]
+[assembly: System.Reflection.AssemblyProductAttribute("Cell")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Cell")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
 // MSBuild WriteCodeFragment sınıfı tarafından oluşturuldu.

@@ -7,4 +7,5 @@ public class CandyType : ScriptableObject
     public Sprite sprite;
     public int id;
     public int scoreValue = 10;
+    public Color color = Color.white;
 }

@@ -4,23 +4,20 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    public LevelData levelData; // assign in inspector or set at runtime
+    public LevelData levelData; 
     public int movesLeft;
     public int targetScore;
     [HideInInspector] public int score = 0;
 
-    // optional UI refs (assign in Inspector)
     public TextMeshProUGUI movesTMP;
     public TextMeshProUGUI scoreTMP;
     public TextMeshProUGUI targetTMP;
 
-    // Win / Lose UI panels (assign in Inspector)
     public GameObject winPanel;
     public GameObject losePanel;
 
-    // scene indices: set in Inspector (Level select scene, next level build index)
     public int levelSelectSceneIndex = 0;
-    public int nextLevelSceneIndex = -1; // -1 = none / not set
+    public int nextLevelSceneIndex = -1;
 
     bool gameEnded = false;
     private GridManager grid;
@@ -28,7 +25,6 @@ public class GameManager : MonoBehaviour
     void Awake()
     {
         grid = FindObjectOfType<GridManager>();
-        // hide panels at start
         if (winPanel != null) winPanel.SetActive(false);
         if (losePanel != null) losePanel.SetActive(false);
     }
@@ -48,7 +44,6 @@ public class GameManager : MonoBehaviour
     }
     UpdateUI();
 }
-    // Start/Restart a level (call from LevelSelect or inspector)
     public void StartLevel(LevelData data)
     {
         levelData = data;
@@ -62,9 +57,8 @@ public class GameManager : MonoBehaviour
         targetScore = levelData.goalAmount;
         score = 0;
         gameEnded = false;
-        Time.timeScale = 1f; // resume time if previously stopped
+        Time.timeScale = 1f; 
 
-        // hide panels on new start
         if (winPanel != null) winPanel.SetActive(false);
         if (losePanel != null) losePanel.SetActive(false);
 
@@ -86,7 +80,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // call when a valid move is made
     public void UseMove()
     {
         if (gameEnded) return;
@@ -95,7 +88,6 @@ public class GameManager : MonoBehaviour
         UpdateUI();
         Debug.Log($"Move used. Moves left: {movesLeft}");
 
-        // decrement bombs on board (grid should exist)
         if (grid != null) grid.DecrementBombTimers();
 
         if (movesLeft <= 0)
@@ -130,9 +122,9 @@ public class GameManager : MonoBehaviour
         if (losePanel != null) losePanel.SetActive(true);
     }
 
-    // UI button handlers (hook these from the Inspector)
     public void RestartLevel()
     {
+        LevelLoader.SelectedLevel = levelData;
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
@@ -172,7 +164,6 @@ public class GameManager : MonoBehaviour
         return;
     }
 
-    // fallback by name
     const string fallback = "LevelSelect";
     if (Application.CanStreamedLevelBeLoaded(fallback))
     {
@@ -185,7 +176,6 @@ public class GameManager : MonoBehaviour
     Debug.LogError("OpenLevelSelect: LevelSelect scene not found in Build Settings. Add it and set levelSelectSceneIndex.");
 }
 
-    // optional: quit application
     public void QuitGame()
     {
         #if UNITY_EDITOR

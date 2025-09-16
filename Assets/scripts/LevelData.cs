@@ -12,7 +12,7 @@ public class LevelData : ScriptableObject
 
     public enum GoalType { Score, Collect }
     public GoalType goalType = GoalType.Score;
-    public int goalAmount = 1000; // for Score or collect count
+    public int goalAmount = 1000; 
 
     [System.Serializable]
     public enum ObstacleType { None, Locked, Jelly, BombTimed }
@@ -23,12 +23,11 @@ public class LevelData : ScriptableObject
         public int x;
         public int y;
         public ObstacleType type;
-        public int jellyLayers = 1;   // for jelly
-        public int bombTimer = 5;     // for timed bomb (moves)
+        public int jellyLayers = 1; 
+        public int bombTimer = 5;     
     }
 
     public List<ObstacleEntry> obstacles = new List<ObstacleEntry>();
 
-    // optional: list of candy types to collect
     public List<CandyType> collectTypes = new List<CandyType>();
 }

@@ -10,7 +10,8 @@ public class Candy : MonoBehaviour
     public Sprite overlayStripedV;
     public Sprite overlayWrapped;
     public Sprite overlayBomb; 
-
+    public ParticleSystem swapParticlePrefab;
+    public ParticleSystem explodeParticlePrefab;
     private SpriteRenderer sr;
     private SpriteRenderer overlaySr;
     private ParticleSystem colorBombVfx;
@@ -98,7 +99,72 @@ public class Candy : MonoBehaviour
                 break;
         }
     }
+    public void PlaySwapParticle()
+    {
+        if (swapParticlePrefab == null) return;
+        var p = Instantiate(swapParticlePrefab, transform.position, Quaternion.identity, transform.parent);
+        var main = p.main;
+        if (type != null) main.startColor = new ParticleSystem.MinMaxGradient(type.color);
 
+        var rends = p.GetComponentsInChildren<ParticleSystemRenderer>(true);
+        string layerName = sr != null ? sr.sortingLayerName : "Default";
+        int baseOrder = sr != null ? sr.sortingOrder : 0;
+        foreach (var r in rends)
+        {
+            r.sortingLayerName = layerName;
+            r.sortingOrder = baseOrder + 2; 
+        }
+
+        p.Play();
+        float life = main.duration + GetMaxStartLifetime(main);
+        Destroy(p.gameObject, life + 0.1f);
+    }
+ public float PlayExplodeAndGetDuration()
+    {
+        float fallback = 0.12f;
+        if (explodeParticlePrefab == null)
+        {
+            if (sr != null) sr.enabled = false;
+            return fallback;
+        }
+
+        if (sr != null) sr.enabled = false;
+
+        var p = Instantiate(explodeParticlePrefab, transform.position, Quaternion.identity, transform.parent);
+        var main = p.main;
+        if (type != null) main.startColor = new ParticleSystem.MinMaxGradient(type.color);
+
+        var rends = p.GetComponentsInChildren<ParticleSystemRenderer>(true);
+        string layerName = sr != null ? sr.sortingLayerName : "Default";
+        int baseOrder = sr != null ? sr.sortingOrder : 0;
+        foreach (var r in rends)
+        {
+            r.sortingLayerName = layerName;
+            r.sortingOrder = baseOrder + 2; 
+        }
+
+        p.Play();
+        float life = main.duration + GetMaxStartLifetime(main);
+        Destroy(p.gameObject, life + 0.1f);
+        return life;
+    }
+
+    float GetMaxStartLifetime(ParticleSystem.MainModule main)
+    {
+        try
+        {
+            var lt = main.startLifetime;
+            #if UNITY_2019_1_OR_NEWER
+            return lt.constantMax > 0f ? lt.constantMax : lt.constant;
+            #else
+            return lt.constant;
+            #endif
+        }
+        catch
+        {
+            return 0.1f;
+        }
+    }
     public void TriggerSpecial(GridManager grid, int x, int y, CandyType targetType = null)
     {
         if (grid == null) return;
@@ -121,6 +187,6 @@ public class Candy : MonoBehaviour
             default:
                 break;
         }
-        Destroy(gameObject);
+        grid.RemoveCandyInstance(this);
     }
 }
