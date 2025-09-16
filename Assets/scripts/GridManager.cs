@@ -614,13 +614,14 @@ public class GridManager : MonoBehaviour
 }
     IEnumerator CollapseRoutine()
     {
+        bool anyMoved = false;
         for (int x = 0; x < width; x++)
         {
             for (int y = height - 1; y >= 0; y--)
             {
                 if (cells[x, y].candy == null)
                 {
-                    int k = y - 1; 
+                    int k = y - 1;
                     while (k >= 0 && cells[x, k].candy == null) k--;
                     if (k >= 0 && cells[x, k].candy != null)
                     {
@@ -632,11 +633,61 @@ public class GridManager : MonoBehaviour
                     else
                     {
                         SpawnRandomCandyAt(x, y);
+                        anyMoved = true;
                     }
                 }
             }
         }
+        if (!anyMoved)
+        {
+            var groupsNow = GetMatchGroups();
+            if (groupsNow.Count > 0)
+            {
+                ClearMatchGroups(groupsNow);
+                yield return StartCoroutine(CollapseRoutine());
+                yield break;
+            }
+            yield break;
+        }
+        while (AnyCandyMoving())
+        {
+            var groups = GetMatchGroups();
+            if (groups.Count > 0)
+            {
+                ClearMatchGroups(groups);
+                // temizlemeyi işledikten sonra yeni çökme hesaplaması yap
+                yield return StartCoroutine(CollapseRoutine());
+                yield break;
+            }
+            yield return null;
+        }
+        
+        var finalGroups = GetMatchGroups();
+        if (finalGroups.Count > 0)
+        {
+            ClearMatchGroups(finalGroups);
+            yield return StartCoroutine(CollapseRoutine());
+            yield break;
+        }
 
+        // kısa bekleme, mevcut davranışı korumak için
         yield return new WaitForSeconds(0.14f);
+    }
+    bool AnyCandyMoving()
+    {
+        if (cells == null) return false;
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                if (cells[x, y] != null && cells[x, y].candy != null)
+                {
+                    var pos = cells[x, y].candy.transform.position;
+                    var target = new Vector3(x, -y, 0);
+                    if ((pos - target).sqrMagnitude > 0.0005f) return true;
+                }
+            }
+        }
+        return false;
     }
 }

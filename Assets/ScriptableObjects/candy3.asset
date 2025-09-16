@@ -16,3 +16,4 @@ MonoBehaviour:
   sprite: {fileID: -6053131974547952348, guid: 71261a81164b7aa4b81f4426646d6401, type: 3}
   id: 3
   scoreValue: 30
+  color: {r: 0.15536624, g: 0.5320754, b: 0, a: 1}
